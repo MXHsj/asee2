@@ -1,11 +1,9 @@
 # ================================================================================
+# file name: 
+# description:
+# author:
+# date: 
 # ================================================================================
-
-# TODO:
-# 1. module design
-# 2. RGB-D fusion
-# 3. normal estimation
-# 4. franka integration
 
 import time
 

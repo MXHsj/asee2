@@ -1,3 +1,10 @@
+# ================================================================================
+# file name: asee2.py
+# description:
+# author: Xihan Ma
+# date: Jan-10-2025
+# ================================================================================
+
 import os
 import threading
 
@@ -10,10 +17,10 @@ from fit_surface import FitQuadraticSurface
 from utils import timer, filter_pcd_outliers
 
 
-# def data_cursor(event,x,y,flags,param):
-#     if event == cv2.EVENT_LBUTTONDBLCLK:
-#         print(f'x: {x}')
-#         print(f'y: {y}')
+def data_cursor(event,x,y,flags,param):
+    if event == cv2.EVENT_LBUTTONDBLCLK:
+        print(f'x: {x}')
+        print(f'y: {y}')
 
 class ASEE2():
     '''
@@ -159,23 +166,25 @@ class ASEE2():
                     self.cam2_depth = cam2_depth
                 
                 # ========== test bg filtering ==========
-                # _, tissue_msk_colorized = self.bg_filter.process(self.cam1_color, self.cam1_depth)
+                # _, tissue_msk1_colorized = self.bg_filter.process(self.cam1_color, self.cam1_depth)
+                # _, tissue_msk2_colorized = self.bg_filter.process(self.cam2_color, self.cam2_depth)
+                # tissue_msk_colorized = np.vstack((tissue_msk1_colorized, tissue_msk2_colorized))
                 # cv2.imshow('bg filtered', tissue_msk_colorized)
                 # if cv2.waitKey(1) & 0xFF == ord('q'):
                 #     break
                 # =======================================
 
                 # ========== test rgbd to pcd ==========
-                cam1_pcd = self.convert_rgbd_to_pcd(cam1_color, cam1_depth,
-                                                    cam1_depth_raw, 
-                                                    self.cam1_intri)
+                cam1_pcd_raw = self.convert_rgbd_to_pcd(cam1_color, cam1_depth,
+                                                        cam1_depth_raw, 
+                                                        self.cam1_intri)
                 
-                cam2_pcd = self.convert_rgbd_to_pcd(cam2_color, cam2_depth,
-                                                    cam2_depth_raw, 
-                                                    self.cam2_intri)
+                cam2_pcd_raw = self.convert_rgbd_to_pcd(cam2_color, cam2_depth,
+                                                        cam2_depth_raw, 
+                                                        self.cam2_intri)
                 
-                cam1_pcd = self.process_pcd(cam1_pcd)
-                cam2_pcd = self.process_pcd(cam2_pcd)
+                cam1_pcd = self.process_pcd(cam1_pcd_raw)
+                cam2_pcd = self.process_pcd(cam2_pcd_raw)
                 merged_pcd = self.merge_pcds(cam1_pcd, cam2_pcd)
                 coeffs = self.surf_fitter.fit_quadratic_plane(merged_pcd)
                 norm = self.surf_fitter.calculate_quadratic_surface_normal(coeffs, 
@@ -201,8 +210,8 @@ class ASEE2():
                 #     break
 
         finally:
-            # self._dump_pcd(cam1_pcd, 'cam1_pcd')
-            # self._dump_pcd(cam2_pcd, 'cam2_pcd')
+            self._dump_pcd(cam1_pcd, 'cam1_pcd')
+            self._dump_pcd(cam2_pcd, 'cam2_pcd')
             # self._dump_pcd(merged_pcd, 'merged_pcd')
             self.onFinish()
 

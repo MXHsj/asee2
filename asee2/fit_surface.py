@@ -1,3 +1,10 @@
+# ================================================================================
+# file name: fit_surface.py
+# description:
+# author: Xihan Ma
+# date: Jan-10-2025
+# ================================================================================
+
 import numpy as np
 
 class FitQuadraticSurface():

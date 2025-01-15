@@ -1,3 +1,10 @@
+# ================================================================================
+# file name: background_filter.py
+# description:
+# author: Xihan Ma
+# date: Jan-10-2025
+# ================================================================================
+
 import cv2
 import numpy as np
 from sklearn.cluster import KMeans
