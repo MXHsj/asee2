@@ -64,11 +64,18 @@ class ASEE2():
     cam2_depth = np.zeros((FRM_HEIGHT, FRM_WIDTH), np.uint16)
     cam2_color = np.zeros((FRM_HEIGHT, FRM_WIDTH), np.uint8)
 
+    cam1_pcd = None
+    cam2_pcd = None
+    surf_coeffs = (0, 0, 0, 0, 0, 0)        # quadratic surface fitting
+    normal_vector = np.array([0.0, 0.0, 0.0])
+
     _pcd_buffer = np.zeros((FRM_HEIGHT*FRM_WIDTH, 3), np.float32)
 
     bg_filter = BackgroundFilter('ccluster')
     surf_fitter = FitQuadraticSurface()
     dthresh_filter = rs.threshold_filter(min_dist=0.07, max_dist=0.50)
+
+    isMskBg = True
 
     def __init__(self):
         self.get_connected_devices()
@@ -103,11 +110,7 @@ class ASEE2():
             print('pcd saved to: ', pcd_path)
 
     # @timer
-    def convert_rgbd_to_pcd(self, color_frame: np.ndarray, depth_frame: np.ndarray, depth_raw, intri, isMskBg=True):
-        if isMskBg:
-            tissue_msk, _ = self.bg_filter.process(color_frame, depth_frame)
-        else:
-            tissue_msk = np.ones_like(depth_frame, np.uint8)
+    def convert_rgbd_to_pcd(self, tissue_msk: np.ndarray, depth_raw, intri):
         [row, col] = np.where(tissue_msk == 1)
         num_pix = row.shape[0]
         sample_interv = round(np.max([1, self.PCD_DOWNSAMPLE_FACTOR * num_pix]))
@@ -151,75 +154,80 @@ class ASEE2():
         return color_coded
 
     def onUpdate(self):
-        try:
-            # cv2.namedWindow('color frame')
-            # cv2.setMouseCallback('color frame', data_cursor)
-            while True:
-                cam1_color, cam1_depth, cam1_depth_raw = self._stream_camera(self.camera1)
-                cam2_color, cam2_depth, cam2_depth_raw = self._stream_camera(self.camera2)
-                if cam1_color is None or cam1_depth is None or cam2_color is None or cam2_depth is None:
-                    continue
-                else:
-                    self.cam1_color = cam1_color
-                    self.cam1_depth = cam1_depth
-                    self.cam2_color = cam2_color
-                    self.cam2_depth = cam2_depth
-                
-                # ========== test bg filtering ==========
-                # _, tissue_msk1_colorized = self.bg_filter.process(self.cam1_color, self.cam1_depth)
-                # _, tissue_msk2_colorized = self.bg_filter.process(self.cam2_color, self.cam2_depth)
-                # tissue_msk_colorized = np.vstack((tissue_msk1_colorized, tissue_msk2_colorized))
-                # cv2.imshow('bg filtered', tissue_msk_colorized)
-                # if cv2.waitKey(1) & 0xFF == ord('q'):
-                #     break
-                # =======================================
+        cam1_color, cam1_depth, cam1_depth_raw = self._stream_camera(self.camera1)
+        cam2_color, cam2_depth, cam2_depth_raw = self._stream_camera(self.camera2)
+        if cam1_color is not None and cam1_depth is not None and cam2_color is not None and cam2_depth is not None:
+            self.cam1_color = cam1_color
+            self.cam1_depth = cam1_depth
+            self.cam2_color = cam2_color
+            self.cam2_depth = cam2_depth
+        
+        if self.isMskBg:
+            tissue_msk1, tissue_msk1_colorized = self.bg_filter.process(self.cam1_color, self.cam1_depth)
+            tissue_msk2, tissue_msk2_colorized = self.bg_filter.process(self.cam2_color, self.cam2_depth)
+        else:
+            tissue_msk1 = np.ones_like(cam1_depth, np.uint8)
+            tissue_msk1_colorized = np.ones_like(cam1_depth, np.uint8)
+            tissue_msk2 = np.ones_like(cam2_depth, np.uint8)
+            tissue_msk2_colorized = np.ones_like(cam1_depth, np.uint8)
 
-                # ========== test rgbd to pcd ==========
-                cam1_pcd_raw = self.convert_rgbd_to_pcd(cam1_color, cam1_depth,
-                                                        cam1_depth_raw, 
-                                                        self.cam1_intri)
-                
-                cam2_pcd_raw = self.convert_rgbd_to_pcd(cam2_color, cam2_depth,
-                                                        cam2_depth_raw, 
-                                                        self.cam2_intri)
-                
-                cam1_pcd = self.process_pcd(cam1_pcd_raw)
-                cam2_pcd = self.process_pcd(cam2_pcd_raw)
-                merged_pcd = self.merge_pcds(cam1_pcd, cam2_pcd)
-                coeffs = self.surf_fitter.fit_quadratic_plane(merged_pcd)
-                norm = self.surf_fitter.calculate_quadratic_surface_normal(coeffs, 
-                                                                           x=self.P_CAM1[0], 
-                                                                           y=self.P_CAM1[1])
-                print(f'normal vector: {norm}')
-                # ======================================
+        cam1_pcd_raw = self.convert_rgbd_to_pcd(tissue_msk1,
+                                                cam1_depth_raw, 
+                                                self.cam1_intri)
+        
+        cam2_pcd_raw = self.convert_rgbd_to_pcd(tissue_msk2,
+                                                cam2_depth_raw, 
+                                                self.cam2_intri)
+        
+        cam1_pcd = self.process_pcd(cam1_pcd_raw)
+        cam2_pcd = self.process_pcd(cam2_pcd_raw)
+        merged_pcd = self.merge_pcds(cam1_pcd, cam2_pcd)
+        self.surf_coeffs = self.surf_fitter.fit_quadratic_plane(merged_pcd)
+        self.normal_vector = self.surf_fitter.calculate_quadratic_surface_normal(self.surf_coeffs, 
+                                                                                x=self.P_CAM1[0], 
+                                                                                y=self.P_CAM1[1])
+        print(f'normal vector: {self.normal_vector}')
 
-                # ===== calibrate probe tip pos =====
-                # probe_cam1 = rs.rs2_deproject_pixel_to_point(self.cam1_intri, 
-                #                                             [347, 376], 
-                #                                             cam1_depth_raw.get_distance(347, 376))
-                # probe_cam2 = rs.rs2_deproject_pixel_to_point(self.cam2_intri, 
-                #                                             [342, 587-480], 
-                #                                             cam1_depth_raw.get_distance(342, 587-480))
-                # print(f'probe tip pos in cam1: {probe_cam1}')
-                # print(f'probe tip pos in cam2: {probe_cam2}')
-                # ===================================
+        # ===== calibrate probe tip pos =====
+        # probe_cam1 = rs.rs2_deproject_pixel_to_point(self.cam1_intri, 
+        #                                             [347, 376], 
+        #                                             cam1_depth_raw.get_distance(347, 376))
+        # probe_cam2 = rs.rs2_deproject_pixel_to_point(self.cam2_intri, 
+        #                                             [342, 587-480], 
+        #                                             cam1_depth_raw.get_distance(342, 587-480))
+        # print(f'probe tip pos in cam1: {probe_cam1}')
+        # print(f'probe tip pos in cam2: {probe_cam2}')
+        # ===================================
 
-                # cv2.imshow('color frame', self.visualize_color_frames())
-                # cv2.imshow('depth frame', self.visualize_depth_frames())
-                # if cv2.waitKey(1) & 0xFF == ord('q'):
-                #     break
+        # ========== test bg filtering ==========
+        tissue_msk_colorized = np.vstack((tissue_msk1_colorized, tissue_msk2_colorized))
+        dbg_img = tissue_msk_colorized.copy()
+        # =======================================
 
-        finally:
-            self._dump_pcd(cam1_pcd, 'cam1_pcd')
-            self._dump_pcd(cam2_pcd, 'cam2_pcd')
-            # self._dump_pcd(merged_pcd, 'merged_pcd')
-            self.onFinish()
+        return dbg_img
 
     def onFinish(self):
         self.camera1.stop()
         self.camera2.stop()
+        # self._dump_pcd(self.cam1_pcd, 'cam1_pcd')
+        # self._dump_pcd(self.cam2_pcd, 'cam2_pcd')
 
 
 if __name__ == "__main__":
     asee2 = ASEE2()
-    asee2.onUpdate()
+    # cv2.namedWindow('color frame')
+    # cv2.setMouseCallback('color frame', data_cursor)
+    try:
+        while True:
+            dbg_img = asee2.onUpdate()
+
+            cv2.imshow('bg filtered', dbg_img)
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
+
+            # cv2.imshow('color frame', self.visualize_color_frames())
+            # cv2.imshow('depth frame', self.visualize_depth_frames())
+            # if cv2.waitKey(1) & 0xFF == ord('q'):
+            #     break
+    finally:
+        asee2.onFinish()
