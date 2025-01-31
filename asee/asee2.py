@@ -67,7 +67,7 @@ class ASEE2():
     cam1_pcd = None
     cam2_pcd = None
     surf_coeffs = (0, 0, 0, 0, 0, 0)        # quadratic surface fitting
-    normal_vector = np.array([0.0, 0.0, 0.0])
+    normal_vector = np.array([0.0, 0.0, 1.0])
 
     _pcd_buffer = np.zeros((FRM_HEIGHT*FRM_WIDTH, 3), np.float32)
 
@@ -143,6 +143,9 @@ class ASEE2():
         if len(devices) < 2:
             raise RuntimeError("At least two RealSense devices are required!")
         # TODO: allow updating devices
+
+    def get_normal_vector(self):
+        return self.normal_vector
 
     def visualize_color_frames(self):
         color_frame = np.vstack((self.cam1_color, self.cam2_color))
