@@ -30,6 +30,7 @@ class BackgroundFilter():
 
     def __init__(self, mode):
         self.filters = {
+            'fixedRange': self._fixed_range,
             'cdcluster': self._rgbd_clustering,
             'dcluster': self._depth_clustering,
             'ccluster': self._color_clustering,
@@ -45,8 +46,16 @@ class BackgroundFilter():
         
         self.color_frame = None
         self.depth_frame = None
+        self.color_threshold = 50
+        self.depth_threshold = 100
+        # self.depth_min = 1000
+        # self.depth_max = 2000
+
 
     def update_frames(self, color_frame:np.ndarray, depth_frame:np.ndarray):
+        '''
+        receive latest frame & downsample
+        '''
         self.HEIGHT_ORIG = depth_frame.shape[0]
         self.WIDTH_ORIG = depth_frame.shape[1]
         height = round((1-self.DOWNSAMPLE_RATE) * self.HEIGHT_ORIG)
@@ -56,8 +65,58 @@ class BackgroundFilter():
         self.color_frame = cv2.resize(color_frame, (width, height))
         self.depth_frame = cv2.resize(depth_frame, (width, height))
 
+    def _fixed_range(self):
+        fixed_foreground_msk = np.zeros(self.depth_frame.shape, dtype=np.uint8)
+        roi_h = round(self.depth_frame.shape[0]*0.3)
+        roi_w = round(self.depth_frame.shape[1]*0.3)
+
+        fixed_foreground_msk[round(self.depth_frame.shape[0]/2 - roi_h//2):
+                             round(self.depth_frame.shape[0]/2 + roi_h//2),
+                             round(self.depth_frame.shape[1]/2 - roi_w//2):
+                             round(self.depth_frame.shape[1]/2 + roi_w//2)] = 1
+
+        color_encoding = np.zeros_like(self.color_frame)
+        color_encoding[fixed_foreground_msk == 1] = self.FOREGROUND_COLOR
+        color_encoding = cv2.addWeighted(color_encoding,0.4,self.color_frame,0.5,0)
+
+        return fixed_foreground_msk, color_encoding
+
     def _depth_thresholding(self):
-        ...
+        # simplified method: mask fixed area
+
+        depth_foreground_msk = np.zeros(self.depth_frame.shape, dtype=np.uint8)
+        roi_h = round(self.depth_frame.shape[0]*0.8)    # 0.8
+        roi_w = round(self.depth_frame.shape[1]*0.8)    # 0.8
+
+        seed_msk = np.zeros((roi_h+2, roi_w+2), dtype=np.uint8)
+        seed_pnt = (roi_w//2, roi_h//2)
+
+        # print(f'central depth: {self.depth_frame[roi_h//2, roi_w//2]}')
+
+        # cv2.floodFill(self.color_frame[:roi_h, :roi_w], seed_msk, seed_pnt, 255,
+        #              (self.color_threshold,)*3, (self.color_threshold,)*3,
+        #              cv2.FLOODFILL_MASK_ONLY | cv2.FLOODFILL_FIXED_RANGE)
+        
+        # print(f'color type: {self.color_frame.dtype}')
+        # print(f'depth type: {self.depth_frame.dtype}')
+
+        cv2.floodFill(self.depth_frame[:roi_h, :roi_w].astype(np.uint8), seed_msk, seed_pnt, 255,
+                      loDiff=(10,),
+                      upDiff=(20,),
+                      flags=cv2.FLOODFILL_MASK_ONLY | cv2.FLOODFILL_FIXED_RANGE)
+
+        depth_foreground_msk[round(self.depth_frame.shape[0]/2 - roi_h//2):
+                             round(self.depth_frame.shape[0]/2 + roi_h//2),
+                             round(self.depth_frame.shape[1]/2 - roi_w//2):
+                             round(self.depth_frame.shape[1]/2 + roi_w//2)] = \
+                                seed_msk[1:roi_h+1, 1:roi_w]
+
+        color_encoding = np.zeros_like(self.color_frame)
+        color_encoding[depth_foreground_msk == 1] = self.FOREGROUND_COLOR
+        color_encoding = cv2.addWeighted(color_encoding,0.4,self.color_frame,0.5,0)
+
+        return depth_foreground_msk, color_encoding
+        
 
     def _color_thresholding(self):
         ...
@@ -98,6 +157,7 @@ class BackgroundFilter():
 
         color_encoding = np.zeros_like(self.color_frame)
         color_encoding[color_foreground_msk == 1] = self.FOREGROUND_COLOR
+        color_encoding = cv2.addWeighted(color_encoding,0.4,self.color_frame,0.5,0)
 
         return color_foreground_msk, color_encoding
 
