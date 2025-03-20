@@ -65,7 +65,7 @@ class ASEE2():
 
     cam1_pcd = None
     cam2_pcd = None
-    surf_coeffs = (0, 0, 0, 0, 0, 0)        # quadratic surface fitting
+    surf_coeffs = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])        # quadratic surface fitting
     normal_vector = np.array([0.0, 0.0, 1.0])
 
     _pcd_buffer = np.zeros((FRM_HEIGHT*FRM_WIDTH, 3), np.float32)
@@ -133,7 +133,7 @@ class ASEE2():
         pcd_out = filter_pcd_outliers(pcd_in)
         return pcd_out
 
-    def merge_pcds(self, cam1_pcd:np.ndarray, cam2_pcd:np.ndarray):
+    def merge_pcds(self, cam1_pcd:np.ndarray, cam2_pcd:np.ndarray) -> np.ndarray:
         cam2_pcd_transformed = cam2_pcd + self.T_CAM1_CAM2[0:3, -1].T
         merged_pcd = np.vstack([cam1_pcd, cam2_pcd_transformed])
         return merged_pcd
@@ -145,11 +145,26 @@ class ASEE2():
             raise RuntimeError("At least two RealSense devices are required!")
         # TODO: allow updating devices
 
+    def get_cam1_color(self) -> np.ndarray:
+        return self.cam1_color
+    
+    def get_cam2_color(self) -> np.ndarray:
+        return self.cam2_color
+    
+    def get_cam1_depth(self) -> np.ndarray:
+        return self.cam1_depth
+    
+    def get_cam2_depth(self) -> np.ndarray:
+        return self.cam2_depth
+
     def get_normal_vector(self) -> np.ndarray:
         return self.normal_vector
     
     def get_surf_coeffs(self) -> np.ndarray:
-        return np.array([self.surf_coeffs])
+        return self.surf_coeffs
+    
+    def get_merged_pcd(self) -> np.ndarray:
+        return self.merged_pcd
 
     def visualize_color_frames(self):
         color_frame = np.vstack((self.cam1_color, self.cam2_color))
@@ -169,9 +184,15 @@ class ASEE2():
             self.cam2_color = cam2_color
             self.cam2_depth = cam2_depth
         
+        # NOTE: blend images is not working because pixel transformation is depth dependent 
+        # NOTE: can we segment in pointcloud?
+
         if self.isMskBg:
             tissue_msk1, tissue_msk1_colorized = self.bg_filter.process(self.cam1_color, self.cam1_depth)
-            tissue_msk2, tissue_msk2_colorized = self.bg_filter.process(self.cam2_color, self.cam2_depth)
+            tissue_msk2, tissue_msk2_colorized = self.bg_filter.process(np.flipud(self.cam2_color), np.flipud(self.cam2_depth))
+            tissue_msk2 = np.flipud(tissue_msk2)
+            tissue_msk2_colorized = np.flipud(tissue_msk2_colorized)
+
         else:
             tissue_msk1 = np.ones_like(cam1_depth, np.uint8)
             tissue_msk1_colorized = np.ones_like(cam1_depth, np.uint8)
@@ -188,8 +209,9 @@ class ASEE2():
         
         self.cam1_pcd = self.process_pcd(cam1_pcd_raw)
         self.cam2_pcd = self.process_pcd(cam2_pcd_raw)
-        merged_pcd = self.merge_pcds(self.cam1_pcd, self.cam2_pcd)
-        self.surf_coeffs = self.surf_fitter.fit_quadratic_plane(merged_pcd)
+        self.merged_pcd = self.merge_pcds(self.cam1_pcd, self.cam2_pcd)
+        self.merged_pcd = self.process_pcd(self.merged_pcd)
+        self.surf_coeffs = self.surf_fitter.fit_quadratic_plane(self.merged_pcd)
         self.normal_vector = self.surf_fitter.calculate_quadratic_surface_normal(self.surf_coeffs, 
                                                                                 x=self.P_CAM1[0], 
                                                                                 y=self.P_CAM1[1])
@@ -217,8 +239,8 @@ class ASEE2():
     def onFinish(self):
         self.camera1.stop()
         self.camera2.stop()
-        self._dump_pcd(self.cam1_pcd, 'cam1_pcd')
-        self._dump_pcd(self.cam2_pcd, 'cam2_pcd')
+        # self._dump_pcd(self.cam1_pcd, 'cam1_pcd')
+        # self._dump_pcd(self.cam2_pcd, 'cam2_pcd')
 
 
 if __name__ == "__main__":

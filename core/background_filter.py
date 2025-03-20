@@ -48,8 +48,6 @@ class BackgroundFilter():
         self.depth_frame = None
         self.color_threshold = 50
         self.depth_threshold = 100
-        # self.depth_min = 1000
-        # self.depth_max = 2000
 
 
     def update_frames(self, color_frame:np.ndarray, depth_frame:np.ndarray):
@@ -67,13 +65,15 @@ class BackgroundFilter():
 
     def _fixed_range(self):
         fixed_foreground_msk = np.zeros(self.depth_frame.shape, dtype=np.uint8)
-        roi_h = round(self.depth_frame.shape[0]*0.3)
-        roi_w = round(self.depth_frame.shape[1]*0.3)
+        roi_h = round(self.depth_frame.shape[0]*0.5)   # 0.35
+        roi_w = round(self.depth_frame.shape[1]*0.5)   # 0.35
+        vert_offset = 35
+        hori_offset = 18
 
-        fixed_foreground_msk[round(self.depth_frame.shape[0]/2 - roi_h//2):
-                             round(self.depth_frame.shape[0]/2 + roi_h//2),
-                             round(self.depth_frame.shape[1]/2 - roi_w//2):
-                             round(self.depth_frame.shape[1]/2 + roi_w//2)] = 1
+        fixed_foreground_msk[round(self.depth_frame.shape[0]/2 + vert_offset - roi_h//2):
+                             round(self.depth_frame.shape[0]/2 + vert_offset + roi_h//2),
+                             round(self.depth_frame.shape[1]/2 + hori_offset - roi_w//2):
+                             round(self.depth_frame.shape[1]/2 + hori_offset + roi_w//2)] = 1
 
         color_encoding = np.zeros_like(self.color_frame)
         color_encoding[fixed_foreground_msk == 1] = self.FOREGROUND_COLOR
