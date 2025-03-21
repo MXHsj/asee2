@@ -11,9 +11,9 @@ import pyrealsense2 as rs
 import numpy as np
 import cv2
 
-from background_filter import BackgroundFilter
-from fit_surface import FitQuadraticSurface
-from utils import timer, filter_pcd_outliers
+from asee2_core.background_filter import BackgroundFilter
+from asee2_core.fit_surface import FitQuadraticSurface
+from asee2_core.utils import timer, filter_pcd_outliers
 
 
 def data_cursor(event,x,y,flags,param):
@@ -184,8 +184,8 @@ class ASEE2():
             self.cam2_color = cam2_color
             self.cam2_depth = cam2_depth
         
-        # NOTE: blend images is not working because pixel transformation is depth dependent 
-        # NOTE: can we segment in pointcloud?
+        # NOTE: blend images is not good option because pixel transformation is depth dependent 
+        # NOTE: directly segment in pointcloud
 
         if self.isMskBg:
             tissue_msk1, tissue_msk1_colorized = self.bg_filter.process(self.cam1_color, self.cam1_depth)

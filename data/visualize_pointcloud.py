@@ -3,8 +3,8 @@ import os
 import numpy as np
 import open3d as o3d
 
-from fit_surface import FitQuadraticSurface
-from utils import filter_pcd_outliers
+from asee2_core.fit_surface import FitQuadraticSurface
+from asee2_core.utils import filter_pcd_outliers
 
 def create_grid_lines(points, rows, cols):
     """
@@ -39,10 +39,10 @@ def create_grid_lines(points, rows, cols):
 
     return line_set
 
-# cam1_pcd_name = 'example_cam1_pcd'
-# cam2_pcd_name = 'example_cam2_pcd'
-cam1_pcd_name = 'cam1_pcd'
-cam2_pcd_name = 'cam2_pcd'
+cam1_pcd_name = 'example_cam1_pcd'
+cam2_pcd_name = 'example_cam2_pcd'
+# cam1_pcd_name = 'cam1_pcd'
+# cam2_pcd_name = 'cam2_pcd'
 # cam1_pcd_name = 'merged_pcd'
             
 cam1_pcd_path = os.path.dirname(__file__) + '/' + cam1_pcd_name + '.npy'
