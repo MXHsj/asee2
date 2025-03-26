@@ -55,8 +55,7 @@ roslaunch asee2 asee2_bringup.launch
 
 By subscribing to the ```/asee2/normal_vector``` topic, the robot manipulator can be controlled to track the normal vector of its contacting surface. This feature is useful for robotic ultrasound scanning where the probe needs to be maintained at certain angle throughout the scan. (A tilted angle can be applied to the normal vector depending on the application).
 
-[Watch demo video on tracking surface normal](https://github.com/MXHsj/asee2/assets/asee2_fr3_norm_tracking_test.mp4)
-<video src="assets/asee2_fr3_norm_tracking_test.mp4" width=300>
+[Watch demo video on tracking surface normal](https://github.com/MXHsj/asee2/tree/main/assets/asee2_fr3_norm_tracking_test.mp4)
 
 ## Citations
 - ```ASEE 2.0```
