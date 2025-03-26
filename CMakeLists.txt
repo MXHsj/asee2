@@ -8,7 +8,9 @@ project(asee2)
 # # if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 # # is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
+  geometry_msgs
   sensor_msgs
+  visualization_msgs
   roscpp
   rospy
   std_msgs
@@ -70,7 +72,9 @@ catkin_python_setup()
 generate_messages(
   DEPENDENCIES
   std_msgs
+  geometry_msgs
   sensor_msgs
+  visualization_msgs
 )
 
 # ###############################################

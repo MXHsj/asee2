@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<launch>
+
+  <node name="asee2_rosbridge" pkg="asee2" type="asee2_rosbridge.py" output="screen" />
+
+  <node type="rviz" name="rviz" pkg="rviz" args="-d $(find asee2)/launch/asee2_viz.rviz" />
+
+</launch>

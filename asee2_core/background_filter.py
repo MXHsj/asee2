@@ -9,7 +9,7 @@ import cv2
 import numpy as np
 from sklearn.cluster import KMeans
 
-from utils import timer
+from asee2_core.utils import timer
 
 class BackgroundFilter():
     """

@@ -14,7 +14,7 @@ import cv2
 from asee2_core.background_filter import BackgroundFilter
 from asee2_core.fit_surface import FitQuadraticSurface
 from asee2_core.utils import timer, filter_pcd_outliers
-
+from asee2_core.constants import CAM1_T_CAM2, CAM1_T_PROBE
 
 def data_cursor(event,x,y,flags,param):
     if event == cv2.EVENT_LBUTTONDBLCLK:
@@ -22,35 +22,15 @@ def data_cursor(event,x,y,flags,param):
         print(f'y: {y}')
 
 class ASEE2():
-    '''
-    TODO:
-    - test in real-time
-    - robotic integration
-    '''
-    T_F_PROBE = np.array([[1, 0, 0, 0],
-                          [0, 1, 0, 0],
-                          [0, 0, 1, 0.224],
-                          [0, 0, 0, 1]])
     
-    # transformation from cam1 to cam2
-    T_CAM1_CAM2 = np.array([[1, 0, 0, 0], #[[1, 0, 0, 0.165+0.018],
-                            [0, 1, 0, 0.12544],
-                            [0, 0, 1, 0],
-                            [0, 0, 0, 1]])
-
-    # transformation from cam1 to probe tip
-    T_CAM1_PROBE = np.array([[-0.9997596514674911, 0.01895868516356237, -0.011009430251793509, 0.003494285383665675],
-                             [-0.019020413904005103, -0.9998038049115955, 0.005529515278539474, 0.04646526225586623],
-                             [-0.010902437916377784, 0.005737590187891416, 0.9999241055731759, 0.17898964143239388],
-                             [0, 0, 0, 1]])
-    
-    P_CAM1 = T_CAM1_PROBE[:3, -1]   # probe tip pose w.r.t cam1
+    P_CAM1 = CAM1_T_PROBE[:3, -1]   # probe tip pose w.r.t cam1
 
     FRM_HEIGHT = 480
     FRM_WIDTH = 640
     MIN_DIST = 0.07     # [m]
-    MAX_DIST = 0.50     # [m]
+    MAX_DIST = 0.25     # 0.50 [m]
     PCD_DOWNSAMPLE_FACTOR = 2e-4
+    MIN_NUM_PNTS = 300
     devices = ['130322273859', '128422271677']            # device serial number
     camera1 = None
     camera2 = None
@@ -125,8 +105,9 @@ class ASEE2():
                 self._pcd_buffer[n, :] = point
         
         pnts = self._pcd_buffer[~np.all(self._pcd_buffer == 0, axis=1)]
+        # TODO: handle empty pnts
+        # print(f'number of points: {pnts.shape[0]}')
         self._pcd_buffer[:] = 0
-
         return pnts
 
     def process_pcd(self, pcd_in):
@@ -134,7 +115,7 @@ class ASEE2():
         return pcd_out
 
     def merge_pcds(self, cam1_pcd:np.ndarray, cam2_pcd:np.ndarray) -> np.ndarray:
-        cam2_pcd_transformed = cam2_pcd + self.T_CAM1_CAM2[0:3, -1].T
+        cam2_pcd_transformed = cam2_pcd + CAM1_T_CAM2[:3, -1].T
         merged_pcd = np.vstack([cam1_pcd, cam2_pcd_transformed])
         return merged_pcd
 
@@ -183,9 +164,6 @@ class ASEE2():
             self.cam1_depth = cam1_depth
             self.cam2_color = cam2_color
             self.cam2_depth = cam2_depth
-        
-        # NOTE: blend images is not good option because pixel transformation is depth dependent 
-        # NOTE: directly segment in pointcloud
 
         if self.isMskBg:
             tissue_msk1, tissue_msk1_colorized = self.bg_filter.process(self.cam1_color, self.cam1_depth)
@@ -211,8 +189,16 @@ class ASEE2():
         self.cam2_pcd = self.process_pcd(cam2_pcd_raw)
         self.merged_pcd = self.merge_pcds(self.cam1_pcd, self.cam2_pcd)
         self.merged_pcd = self.process_pcd(self.merged_pcd)
-        self.surf_coeffs = self.surf_fitter.fit_quadratic_plane(self.merged_pcd)
-        self.normal_vector = self.surf_fitter.calculate_quadratic_surface_normal(self.surf_coeffs, 
+
+        num_pnts = self.merged_pcd.shape[0]
+        if num_pnts < self.MIN_NUM_PNTS:
+            # print(f'no target')
+            self.surf_coeffs = np.zeros((6,))
+            self.normal_vector = np.array([0.0, 0.0, 0.0])
+            
+        else:
+            self.surf_coeffs = self.surf_fitter.fit_quadratic_plane(self.merged_pcd)
+            self.normal_vector = self.surf_fitter.calculate_quadratic_surface_normal(self.surf_coeffs, 
                                                                                 x=self.P_CAM1[0], 
                                                                                 y=self.P_CAM1[1])
         
