@@ -30,9 +30,12 @@ def configure_camera(serial_number):
 def main():
 
     serial_numbers = get_connected_devices()
+    print(f'camera serial numbers: \n{serial_numbers}')
     pipeline1 = configure_camera(serial_numbers[0])
     pipeline2 = configure_camera(serial_numbers[1])
 
+    input('press enter to start streaming image')
+    
     try:
         while True:
             start_time = time.perf_counter()

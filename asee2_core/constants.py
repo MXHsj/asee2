@@ -7,6 +7,8 @@
 
 import numpy as np
 
+devices = ['130322273859', '128422271677']  # camera device serial number
+
 # transformation from fr3 flange to probe tip
 FLANGE_T_PROBE = np.array([[1, 0, 0, 0],
                            [0, 1, 0, 0],

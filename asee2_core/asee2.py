@@ -14,7 +14,7 @@ import cv2
 from asee2_core.background_filter import BackgroundFilter
 from asee2_core.fit_surface import FitQuadraticSurface
 from asee2_core.utils import timer, filter_pcd_outliers
-from asee2_core.constants import CAM1_T_CAM2, CAM1_T_PROBE
+from asee2_core.constants import CAM1_T_CAM2, CAM1_T_PROBE, devices
 
 def data_cursor(event,x,y,flags,param):
     if event == cv2.EVENT_LBUTTONDBLCLK:
@@ -31,7 +31,6 @@ class ASEE2():
     MAX_DIST = 0.25     # 0.50 [m]
     PCD_DOWNSAMPLE_FACTOR = 2e-4
     MIN_NUM_PNTS = 300
-    devices = ['130322273859', '128422271677']            # device serial number
     camera1 = None
     camera2 = None
     cam1_intri = None
@@ -60,8 +59,8 @@ class ASEE2():
 
     def __init__(self):
         self.get_connected_devices()
-        self.camera1, self.cam1_intri = self._configure_camera(self.devices[0])
-        self.camera2, self.cam2_intri = self._configure_camera(self.devices[1])
+        self.camera1, self.cam1_intri = self._configure_camera(devices[0])
+        self.camera2, self.cam2_intri = self._configure_camera(devices[1])
         
     def _configure_camera(self, serial_number):
         pipeline = rs.pipeline()
