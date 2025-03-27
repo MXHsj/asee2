@@ -5,6 +5,7 @@ import open3d as o3d
 
 from asee2_core.fit_surface import FitQuadraticSurface
 from asee2_core.utils import filter_pcd_outliers
+from asee2_core.constants import CAM1_T_CAM2, CAM1_T_PROBE
 
 def create_grid_lines(points, rows, cols):
     """
@@ -53,25 +54,8 @@ cam2_pcd_raw_ = np.load(cam2_pcd_path)
 
 surf_fitter = FitQuadraticSurface()
 
-# ===== transformations =====
-T_CAM1_CAM2 = np.array([[1, 0, 0, 0],
-                        [0, 1, 0, 0.12544],
-                        [0, 0, 1, 0],
-                        [0, 0, 0, 1]])
-
-T_F_PROBE = np.array([[1, 0, 0, 0],
-                      [0, 1, 0, 0],
-                      [0, 0, 1, 0.224],
-                      [0, 0, 0, 1]])
-
-# transformation from cam1 to probe tip
-T_CAM1_PROBE = np.array([[-0.9997596514674911, 0.01895868516356237, -0.011009430251793509, 0.003494285383665675],
-                         [-0.019020413904005103, -0.9998038049115955, 0.005529515278539474, 0.04646526225586623],
-                         [-0.010902437916377784, 0.005737590187891416, 0.9999241055731759, 0.17898964143239388],
-                         [0, 0, 0, 1]])
-
-cam2_pcd_raw = cam2_pcd_raw_ + T_CAM1_CAM2[0:3, -1].T
-P_CAM1 = T_CAM1_PROBE[:3, -1]   # probe tip pose w.r.t cam1
+cam2_pcd_raw = cam2_pcd_raw_ + CAM1_T_CAM2[0:3, -1].T
+P_CAM1 = CAM1_T_PROBE[:3, -1]   # probe tip pose w.r.t cam1
 print('probe tip position', P_CAM1)
 # ===========================
 
@@ -89,10 +73,10 @@ cam2_pcd_raw[:,-1] = -cam2_pcd_raw[:,-1]
 combined_pcd = np.vstack([cam1_pcd_raw, cam2_pcd_raw])
 xrange = [np.min(combined_pcd[:,0]), np.max(combined_pcd[:,0])]
 yrange = [np.min(combined_pcd[:,1]), np.max(combined_pcd[:,1])]
-coeffs = surf_fitter.fit_quadratic_plane(combined_pcd)
-norm = surf_fitter.calculate_quadratic_surface_normal(coeffs, x=P_CAM1[0], y=P_CAM1[1])
+coeffs = surf_fitter.fit_surface(combined_pcd)
+norm = surf_fitter.calculate_normal(coeffs, x=P_CAM1[0], y=P_CAM1[1])
 
-qs_pcd_raw = surf_fitter.sample_quadratic_surface(coeffs, xrange, yrange, resolution=30)
+qs_pcd_raw = surf_fitter.sample_surface(coeffs, xrange, yrange, resolution=30)
 # print('quadratic plane coeffs', coeffs)
 print('normal vector: ', norm)
 # =============================

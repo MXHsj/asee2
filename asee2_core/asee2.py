@@ -12,7 +12,7 @@ import numpy as np
 import cv2
 
 from asee2_core.background_filter import BackgroundFilter
-from asee2_core.fit_surface import FitQuadraticSurface
+from asee2_core.fit_surface import FitSurface
 from asee2_core.utils import timer, filter_pcd_outliers
 from asee2_core.constants import CAM1_T_CAM2, CAM1_T_PROBE, devices
 
@@ -44,15 +44,18 @@ class ASEE2():
 
     cam1_pcd = None
     cam2_pcd = None
-    surf_coeffs = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])        # quadratic surface fitting
     normal_vector = np.array([0.0, 0.0, 1.0])
 
     _pcd_buffer = np.zeros((FRM_HEIGHT*FRM_WIDTH, 3), np.float32)
 
+    # surf_fitter = FitSurface(fitter='quadratic')
+    surf_fitter = FitSurface(fitter='flat')
+    surf_coeffs = np.zeros((surf_fitter.n_coeffs,))        # quadratic surface fitting
+
     bg_filter = BackgroundFilter('fixedRange')
     # bg_filter = BackgroundFilter('dthresh')
     # bg_filter = BackgroundFilter('ccluster')
-    surf_fitter = FitQuadraticSurface()
+
     dthresh_filter = rs.threshold_filter(min_dist=0.07, max_dist=0.50)
 
     isMskBg = True
@@ -123,7 +126,6 @@ class ASEE2():
         devices = [d.get_info(rs.camera_info.serial_number) for d in ctx.query_devices()]
         if len(devices) < 2:
             raise RuntimeError("At least two RealSense devices are required!")
-        # TODO: allow updating devices
 
     def get_cam1_color(self) -> np.ndarray:
         return self.cam1_color
@@ -192,14 +194,14 @@ class ASEE2():
         num_pnts = self.merged_pcd.shape[0]
         if num_pnts < self.MIN_NUM_PNTS:
             # print(f'no target')
-            self.surf_coeffs = np.zeros((6,))
+            self.surf_coeffs = np.zeros((self.surf_fitter.n_coeffs,))
             self.normal_vector = np.array([0.0, 0.0, 0.0])
             
         else:
-            self.surf_coeffs = self.surf_fitter.fit_quadratic_plane(self.merged_pcd)
-            self.normal_vector = self.surf_fitter.calculate_quadratic_surface_normal(self.surf_coeffs, 
-                                                                                x=self.P_CAM1[0], 
-                                                                                y=self.P_CAM1[1])
+            self.surf_coeffs = self.surf_fitter.fit_surface(self.merged_pcd)
+            self.normal_vector = self.surf_fitter.calculate_normal(self.surf_coeffs, 
+                                                                    x=self.P_CAM1[0], 
+                                                                    y=self.P_CAM1[1])
         
         # print(f'normal vector: {self.normal_vector}')
 
