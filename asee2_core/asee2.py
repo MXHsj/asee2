@@ -48,8 +48,8 @@ class ASEE2():
 
     _pcd_buffer = np.zeros((FRM_HEIGHT*FRM_WIDTH, 3), np.float32)
 
-    # surf_fitter = FitSurface(fitter='quadratic')
-    surf_fitter = FitSurface(fitter='flat')
+    surf_fitter = FitSurface(fitter='quadratic')
+    # surf_fitter = FitSurface(fitter='flat')
     surf_coeffs = np.zeros((surf_fitter.n_coeffs,))        # quadratic surface fitting
 
     bg_filter = BackgroundFilter('fixedRange')
