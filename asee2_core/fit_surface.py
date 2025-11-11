@@ -55,7 +55,7 @@ class FitFlatSurface():
         
         normal_magnitude = np.linalg.norm(normal)
         if normal_magnitude != 0:
-            normal = normal / normal_magnitude
+            normal /= (normal_magnitude + 1e-7)
 
         return normal
 
